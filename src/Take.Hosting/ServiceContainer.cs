@@ -94,16 +94,14 @@ namespace Take.Hosting
                         tierServices
                             .Select(s => Task.Run(async () =>
                             {
-                                _logger.WriteEx(LogEventLevel.Debug, nameof(ServiceContainer), null,
-                                    "Starting service '{ServiceName}' on tier {Tier}...", s.GetType().Name, tier);
+                                _logger.Debug("Starting service '{ServiceName}' on tier {Tier}...", s.GetType().Name, tier);
 
                                 await s.StartAsync(cancellationToken);
 
                                 _serviceMonitors.Add(
                                     _serviceMonitor.Monitor(s, MonitorDelay));
 
-                                _logger.WriteEx(LogEventLevel.Debug, nameof(ServiceContainer), null,
-                                    "Service '{ServiceType}' started", s.GetType().Name);
+                                _logger.Debug("Service '{ServiceType}' started", s.GetType().Name);
                             }, cancellationToken));
 
                     await Task.WhenAll(tierStartTasks).ConfigureAwait(false);
@@ -165,8 +163,7 @@ namespace Take.Hosting
                 {
                     try
                     {
-                        _logger.WriteEx(LogEventLevel.Debug, nameof(ServiceContainer), null,
-                            "Stopping service '{ServiceType}' on tier {Tier}...", tierService.GetType().Name, tier);
+                        _logger.Debug("Stopping service '{ServiceType}' on tier {Tier}...", tierService.GetType().Name, tier);
 
                         tierService.Stop();
 
@@ -187,19 +184,12 @@ namespace Take.Hosting
                                     {
                                         if (t.IsFaulted)
                                         {
-                                            _logger.WriteEx(LogEventLevel.Error, nameof(ServiceContainer), null,
-                                                "Service '{ServiceType}' stopped in faulted state", tierService.GetType().Name, tier);
-
-                                            if (t.Exception != null)
-                                            {
-                                                _exceptionHandler.HandleException(
-                                                    t.Exception, nameof(ExecuteAsync));
-                                            }
+                                            _logger.Error(t.Exception,
+                                                "Service '{ServiceType}' stopped in faulted state on tier {Tier}", tierService.GetType().Name, tier);
                                         }
                                         else
                                         {
-                                            _logger.WriteEx(LogEventLevel.Debug, nameof(ServiceContainer), null,
-                                                "Service '{ServiceType}' stopped successfully", tierService.GetType().Name, tier);
+                                            _logger.Debug("Service '{ServiceType}' stopped successfully on tier {Tier}", tierService.GetType().Name, tier);
                                         }
 
                                         cts.Dispose();
@@ -211,8 +201,7 @@ namespace Take.Hosting
                     }
                     catch (Exception ex)
                     {
-                        _logger.WriteEx(LogEventLevel.Error, nameof(ServiceContainer), null,
-                            "One or more services failed to stop on tier {Tier}", tier);
+                        _logger.Error(ex, "One or more services failed to stop on tier {Tier}", tier);
 
                         exceptions.Add(ex);
                     }
@@ -223,19 +212,13 @@ namespace Take.Hosting
                     var tierExecutionTask = Task.WhenAll(tierExecutionTasks);
                     try
                     {
-                        _logger.WriteEx(LogEventLevel.Debug, nameof(ServiceContainer), null,
-                            "Awaiting {TaskCount} execution tasks on tier {Tier}...", tierExecutionTasks.Count, tier);
-
+                        _logger.Debug("Awaiting {TaskCount} execution tasks on tier {Tier}...", tierExecutionTasks.Count, tier);
                         await tierExecutionTask.ConfigureAwait(false);
-
-                        _logger.WriteEx(LogEventLevel.Debug, nameof(ServiceContainer), null,
-                            "Execution tasks finished on tier {Tier}", tier);
+                        _logger.Debug("Execution tasks finished on tier {Tier}", tier);
                     }
                     catch (Exception ex)
                     {
-                        _logger.WriteEx(LogEventLevel.Error, nameof(ServiceContainer), null,
-                            "Execution tasks failed on tier {Tier}", tier);
-
+                        _logger.Error(ex, "Execution tasks failed on tier {Tier}", tier);
                         exceptions.Add(tierExecutionTask.Exception ?? ex);
                     }
                 }

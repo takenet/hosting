@@ -74,10 +74,7 @@ namespace Take.Hosting
                 }
                 catch (Exception ex)
                 {
-                    _logger.WriteEx(LogEventLevel.Error, nameof(ServiceActivator), null,
-                        "An error occurred while activating service '{ServiceType}': {ExceptionMessage}", serviceType.Name, ex.Message);
-
-                    _exceptionHandler.HandleException(ex, correlationId: serviceType.ToString());
+                    _logger.Error(ex, "An error occurred while activating service '{ServiceType}'", serviceType.Name);
 
                     throw;
                 }
@@ -87,8 +84,7 @@ namespace Take.Hosting
 
             await _serviceContainer.StartAsync(cancellationToken);
 
-            _logger.WriteEx(LogEventLevel.Debug, nameof(ServiceActivator), null,
-                "Service container started");
+            _logger.Debug("Service container started");
 
             await base.SynchronizedStartAsync(cancellationToken);
         }
@@ -105,7 +101,7 @@ namespace Take.Hosting
         protected virtual IEnumerable<Type> GetServiceTypes()
         {
             // Call LIME's TypeUtil since it loads all the referenced assemblies.     
-            var @namespace = $"{nameof(Takenet)}.{nameof(Iris)}";
+            var @namespace = "";
             var path = Path.GetDirectoryName(Assembly.GetEntryAssembly().Location);
             var searchPattern = $"{@namespace}*.dll";
 
@@ -130,7 +126,9 @@ namespace Take.Hosting
 
         protected virtual Container CreateServiceContainer(Type serviceType, IActivatable activatable)
         {
-            var container = new Container().WithRequiredOptions();
+            var container = new Container();
+            container.Options.AllowOverridingRegistrations = true;
+            container.Options.SuppressLifestyleMismatchVerification = true;
             container.ResolveUnregisteredType += LinkToParentContainer;
 
             if (activatable.RegistrableType != null &&
@@ -146,7 +144,7 @@ namespace Take.Hosting
 
             if (!activatable.PreserveDiagnostics)
             {
-                container.RegisterSingleton(_logger);
+                container.RegisterInstance(_logger);
             }
 
             if (!string.IsNullOrWhiteSpace(activatable.ConfigurationValuePrefix))
@@ -155,7 +153,7 @@ namespace Take.Hosting
                     _configurationValueProvider,
                     activatable.ConfigurationValuePrefix);
 
-                container.RegisterSingleton<IConfigurationValueProvider>(prefixConfigurationValueProvider);
+                container.RegisterInstance<IConfigurationValueProvider>(prefixConfigurationValueProvider);
             }
 
             foreach (var overrideType in OverrideTypes)
